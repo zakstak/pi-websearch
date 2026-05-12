@@ -6,8 +6,37 @@ import type { ConfigLoadResult } from "./websearch/types.js";
 
 const STATUS_KEY = "pi-websearch";
 const WIDGET_KEY = "pi-websearch";
+const ENABLE_ENV = "PI_WEBSEARCH";
+
+function parseEnableEnv(envVar: string): boolean {
+	const envValue = process.env[envVar];
+	if (!envValue) {
+		return true;
+	}
+
+	const normalized = envValue.trim().toLowerCase();
+	if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
+		return false;
+	}
+
+	if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
+		return true;
+	}
+
+	// Unknown values fall back to default-on behavior.
+	return true;
+}
+
+export function isWebsearchEnabled(): boolean {
+	return parseEnableEnv(ENABLE_ENV);
+}
 
 export default function (pi: ExtensionAPI): void {
+	// When PI_WEBSEARCH disables the extension, keep factory callable but skip all registration side effects.
+	if (!isWebsearchEnabled()) {
+		return;
+	}
+
 	let state: ConfigLoadResult = {
 		ok: false,
 		reason: "missing_config",
