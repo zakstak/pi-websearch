@@ -160,12 +160,31 @@ describe("loadWebsearchConfig", () => {
 		}
 	});
 
-	it("#given empty provider list #when loading config #then config is invalid", async () => {
+	it("#given empty provider list with auto enabled #when loading config #then native-only config is valid", async () => {
 		// given
 		const root = await makeTempHome();
 		const projectPi = join(root, ".pi");
 		await mkdir(projectPi, { recursive: true });
-		await writeFile(join(projectPi, "websearch.json"), JSON.stringify({ providers: [] }), "utf8");
+		await writeFile(join(projectPi, "websearch.json"), JSON.stringify({ providers: [], auto: true }), "utf8");
+
+		try {
+			// when
+			const result = await loadWebsearchConfig({ cwd: root, homeDir: root });
+
+			// then
+			expect(result.ok).toBe(true);
+			if (result.ok) expect(result.config.providers).toEqual([]);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("#given empty provider list with auto disabled #when loading config #then config is invalid", async () => {
+		// given
+		const root = await makeTempHome();
+		const projectPi = join(root, ".pi");
+		await mkdir(projectPi, { recursive: true });
+		await writeFile(join(projectPi, "websearch.json"), JSON.stringify({ providers: [], auto: false }), "utf8");
 
 		try {
 			// when

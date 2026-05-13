@@ -22,10 +22,10 @@ interface NativeProviderMapping {
 
 function nativeMapping(model: NativeModelInfo): NativeProviderMapping | null {
 	if (
-		model.provider === "openai" &&
+		(model.provider === "openai" || model.provider === "openai-codex") &&
 		(/^(gpt-5\.5(-fast)?|gpt-4\.1(-mini)?)$/.test(model.id) || /^gpt-4o(-mini)?(-\d{4}-\d{2}-\d{2})?$/.test(model.id))
 	) {
-		return { provider: "openai", resource: "responses" };
+		return { provider: model.provider === "openai-codex" ? "codex" : "openai", resource: "responses" };
 	}
 
 	if (
