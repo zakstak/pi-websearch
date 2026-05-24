@@ -12,7 +12,7 @@ async function makeTempHome(): Promise<string> {
 }
 
 describe("loadWebsearchConfig", () => {
-	it("#given no config files #when loading config #then reports missing config", async () => {
+	it("#given no config files #when loading config #then returns duckduckgo html default", async () => {
 		// given
 		const root = await makeTempHome();
 
@@ -21,10 +21,15 @@ describe("loadWebsearchConfig", () => {
 			const result = await loadWebsearchConfig({ cwd: root, homeDir: root });
 
 			// then
-			expect(result.ok).toBe(false);
-			if (!result.ok) {
-				expect(result.reason).toBe("missing_config");
-				expect(result.message).toContain(".pi/websearch.json");
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.source).toBe("default:duckduckgo-html");
+				expect(result.config).toEqual({
+					strategy: "priority",
+					fallback: true,
+					auto: true,
+					providers: [{ id: "default", provider: "duckduckgo-html", maxResults: 10 }],
+				});
 			}
 		} finally {
 			await rm(root, { recursive: true, force: true });
@@ -61,6 +66,32 @@ describe("loadWebsearchConfig", () => {
 				expect(result.config.auto).toBe(true);
 				expect(result.config.providers).toEqual([{ provider: "exa", apiKey: "exa-project", maxResults: 3 }]);
 				expect(result.source).toBe(join(projectPi, "websearch.json"));
+			}
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("#given backend alias config #when loading config #then preserves explicit override", async () => {
+		// given
+		const root = await makeTempHome();
+		const projectPi = join(root, ".pi");
+		await mkdir(projectPi, { recursive: true });
+		await writeFile(
+			join(projectPi, "websearch.json"),
+			JSON.stringify({ backend: "brave", apiKey: "brave-test" }),
+			"utf8",
+		);
+
+		try {
+			// when
+			const result = await loadWebsearchConfig({ cwd: root, homeDir: root });
+
+			// then
+			expect(result.ok).toBe(true);
+			if (result.ok) {
+				expect(result.source).toBe(join(projectPi, "websearch.json"));
+				expect(result.config.providers).toEqual([{ provider: "brave", apiKey: "brave-test" }]);
 			}
 		} finally {
 			await rm(root, { recursive: true, force: true });

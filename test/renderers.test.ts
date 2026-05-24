@@ -20,6 +20,29 @@ describe("renderSearchCall", () => {
 });
 
 describe("renderSearchResult", () => {
+	it("#given progress details #when rendering partial result #then includes route and result limit", () => {
+		// given / when
+		const component = renderSearchResult(
+			{
+				content: [{ type: "text", text: 'Searching "pi extensions" via default/duckduckgo-html (max 10)' }],
+				details: {
+					phase: "searching",
+					query: "pi extensions",
+					providerLabels: ["default/duckduckgo-html"],
+					maxResults: 10,
+				},
+			},
+			{ isPartial: true },
+			theme,
+		);
+
+		// then
+		const rendered = component.render(120).join("\n");
+		expect(rendered).toContain("Searching");
+		expect(rendered).toContain("default/duckduckgo-html");
+		expect(rendered).toContain("max 10");
+	});
+
 	it("#given search details #when rendering expanded result #then includes source rows", () => {
 		// given
 		const details: SearchDetails = {
@@ -46,5 +69,47 @@ describe("renderSearchResult", () => {
 		expect(rendered).toContain("exa/exa-search");
 		expect(rendered).toContain("route exa/exa-search:1");
 		expect(rendered).toContain("https://example.com/pi");
+	});
+
+	it("#given search details #when rendering collapsed result #then includes top source rows", () => {
+		// given
+		const details: SearchDetails = {
+			provider: "exa",
+			entryId: "exa-search",
+			query: "pi extensions",
+			results: [
+				{ title: "Pi", url: "https://example.com/pi", snippet: "Pi docs" },
+				{ title: "Extensions", url: "https://example.com/extensions" },
+			],
+			durationMs: 42,
+			truncated: false,
+			strategy: "priority",
+		};
+
+		// when
+		const component = renderSearchResult({ content: [{ type: "text", text: "ok" }], details }, {}, theme);
+
+		// then
+		const rendered = component.render(120).join("\n");
+		expect(rendered).toContain("2 results");
+		expect(rendered).toContain("Pi");
+		expect(rendered).toContain("https://example.com/pi");
+		expect(rendered).toContain("Pi docs");
+	});
+
+	it("#given error details #when rendering result #then displays the error message", () => {
+		// given / when
+		const component = renderSearchResult(
+			{
+				content: [{ type: "text", text: "Invalid provider config" }],
+				details: { phase: "error", query: "pi extensions", error: "Invalid provider config" },
+			},
+			{},
+			theme,
+		);
+
+		// then
+		const rendered = component.render(120).join("\n");
+		expect(rendered).toContain("Invalid provider config");
 	});
 });

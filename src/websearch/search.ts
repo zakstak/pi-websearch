@@ -11,20 +11,24 @@ import type {
 
 const MAX_ERROR_DETAIL_LENGTH = 500;
 
+function isJsonObject(value: unknown): value is JsonObject {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function truncate(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, max - 1)}…` : value;
 }
 
 function extractErrorDetail(payload: unknown, bodyText: string): string {
-	if (typeof payload === "object" && payload !== null && !Array.isArray(payload)) {
-		const obj = payload as JsonObject;
-		const error = obj.error;
+	if (isJsonObject(payload)) {
+		const obj = payload;
+		const error = obj["error"];
 		if (typeof error === "string" && error.length > 0) return truncate(error, MAX_ERROR_DETAIL_LENGTH);
-		if (typeof error === "object" && error !== null && !Array.isArray(error)) {
-			const message = (error as JsonObject).message;
+		if (isJsonObject(error)) {
+			const message = error["message"];
 			if (typeof message === "string" && message.length > 0) return truncate(message, MAX_ERROR_DETAIL_LENGTH);
 		}
-		const message = obj.message;
+		const message = obj["message"];
 		if (typeof message === "string" && message.length > 0) return truncate(message, MAX_ERROR_DETAIL_LENGTH);
 	}
 	const trimmed = bodyText.trim();
@@ -110,21 +114,23 @@ async function performProviderSearch(
 	const built = buildSearchRequest(config, request);
 	let response: Response;
 	try {
-		response = await fetch(built.url, {
+		const init: RequestInit = {
 			...built.init,
-			body: built.body ? JSON.stringify(built.body) : undefined,
-			signal,
-		});
+		};
+		if (built.body !== undefined) init.body = JSON.stringify(built.body);
+		if (signal !== undefined) init.signal = signal;
+		response = await fetch(built.url, init);
 	} catch (error) {
-		return {
+		const details: SearchDetails = {
 			provider: config.provider,
-			entryId: config.id,
 			query: request.query,
 			results: [],
 			durationMs: Date.now() - startedAt,
 			truncated: false,
 			error: error instanceof Error ? error.message : "Search request failed",
 		};
+		if (config.id !== undefined) details.entryId = config.id;
+		return details;
 	}
 
 	let bodyText = "";
@@ -134,7 +140,9 @@ async function performProviderSearch(
 		bodyText = "";
 	}
 	let payload: unknown = {};
-	if (bodyText.length > 0) {
+	if (config.provider === "duckduckgo-html") {
+		payload = { html: bodyText };
+	} else if (bodyText.length > 0) {
 		try {
 			payload = JSON.parse(bodyText);
 		} catch {
@@ -142,27 +150,29 @@ async function performProviderSearch(
 		}
 	}
 	if (!response.ok) {
-		return {
+		const details: SearchDetails = {
 			provider: config.provider,
-			entryId: config.id,
 			query: request.query,
 			results: [],
 			durationMs: Date.now() - startedAt,
 			truncated: false,
 			error: httpErrorMessage(response.status, payload, bodyText),
 		};
+		if (config.id !== undefined) details.entryId = config.id;
+		return details;
 	}
 
 	const results = normalizeSearchResponse(config.provider, payload);
 	const max = request.maxResults;
-	return {
+	const details: SearchDetails = {
 		provider: config.provider,
-		entryId: config.id,
 		query: request.query,
 		results: results.slice(0, max),
 		durationMs: Date.now() - startedAt,
 		truncated: results.length > max,
 	};
+	if (config.id !== undefined) details.entryId = config.id;
+	return details;
 }
 
 function attemptFromDetails(details: SearchDetails): SearchAttempt {
@@ -217,9 +227,8 @@ export async function performSearch(
 
 	if (collected.size > 0 && selectedDetails) {
 		const results = [...collected.values()];
-		return {
+		const details: SearchDetails = {
 			provider: selectedDetails.provider,
-			entryId: selectedDetails.entryId,
 			query: request.query,
 			results,
 			durationMs: Date.now() - startedAt,
@@ -227,6 +236,8 @@ export async function performSearch(
 			strategy: config.strategy,
 			attempts,
 		};
+		if (selectedDetails.entryId !== undefined) details.entryId = selectedDetails.entryId;
+		return details;
 	}
 
 	const failed = selectedDetails ?? {

@@ -1,55 +1,71 @@
 import { describe, expect, it, vi } from "vitest";
 
-import websearchExtension, { isWebsearchEnabled } from "../src/index.js";
+import websearchExtension from "../src/index.js";
 
-const ENABLE_ENV = "PI_WEBSEARCH";
+type SessionHandler = (event: object, ctx: object) => Promise<void> | void;
 
-describe("websearch extension toggle", () => {
-	it("returns true when PI_WEBSEARCH is unset", () => {
-		delete process.env[ENABLE_ENV];
-		expect(isWebsearchEnabled()).toBe(true);
+function createTheme() {
+	return { fg: (_key: string, value: string) => value };
+}
+
+describe("websearch extension UI", () => {
+	it("#given default backend #when session starts #then clears startup widget", async () => {
+		// given
+		let sessionStart: SessionHandler | undefined;
+		const setStatus = vi.fn();
+		const setWidget = vi.fn();
+
+		// when
+		websearchExtension({
+			registerTool: vi.fn(),
+			registerCommand: vi.fn(),
+			on(eventName: string, handler: unknown) {
+				if (eventName === "session_start") {
+					sessionStart = handler as SessionHandler;
+				}
+			},
+		} as never);
+		await sessionStart?.(
+			{},
+			{
+				cwd: "/tmp/no-config",
+				model: { provider: "local", api: "openai-completions" },
+				ui: { setStatus, setWidget, notify: vi.fn(), theme: createTheme() },
+			},
+		);
+
+		// then
+		expect(setStatus).toHaveBeenCalledWith("pi-websearch", undefined);
+		expect(setWidget).toHaveBeenCalledWith("pi-websearch", undefined);
 	});
 
-	it.each(["1", "true", "yes", "on", " TRUE ", "\tYeS\n"])(
-		"returns true for truthy PI_WEBSEARCH value %s",
-		(envValue) => {
-			process.env[ENABLE_ENV] = envValue;
-			expect(isWebsearchEnabled()).toBe(true);
-		},
-	);
+	it("#given provider native model #when session starts #then clears delegated native widget", async () => {
+		// given
+		let sessionStart: SessionHandler | undefined;
+		const setStatus = vi.fn();
+		const setWidget = vi.fn();
 
-	it.each(["0", "false", "no", "off", " OFF ", "\nNo\t"])(
-		"returns false for falsy PI_WEBSEARCH value %s",
-		(envValue) => {
-			process.env[ENABLE_ENV] = envValue;
-			expect(isWebsearchEnabled()).toBe(false);
-		},
-	);
+		// when
+		websearchExtension({
+			registerTool: vi.fn(),
+			registerCommand: vi.fn(),
+			on(eventName: string, handler: unknown) {
+				if (eventName === "session_start") {
+					sessionStart = handler as SessionHandler;
+				}
+			},
+		} as never);
+		await sessionStart?.(
+			{},
+			{
+				cwd: "/tmp/no-config",
+				model: { provider: "openai", api: "openai-responses" },
+				ui: { setStatus, setWidget, notify: vi.fn(), theme: createTheme() },
+			},
+		);
 
-	it("returns true for unknown PI_WEBSEARCH values", () => {
-		process.env[ENABLE_ENV] = "definitely";
-		expect(isWebsearchEnabled()).toBe(true);
-	});
-
-	it("is a no-op when PI_WEBSEARCH is disabled", () => {
-		process.env[ENABLE_ENV] = "0";
-		const registerTool = vi.fn();
-		const on = vi.fn();
-		const registerCommand = vi.fn();
-		websearchExtension({ registerTool, on, registerCommand } as never);
-		expect(registerTool).not.toHaveBeenCalled();
-		expect(on).not.toHaveBeenCalled();
-		expect(registerCommand).not.toHaveBeenCalled();
-	});
-
-	it("registers tool, hooks, and command when PI_WEBSEARCH is unset", () => {
-		delete process.env[ENABLE_ENV];
-		const registerTool = vi.fn();
-		const on = vi.fn();
-		const registerCommand = vi.fn();
-		websearchExtension({ registerTool, on, registerCommand } as never);
-		expect(registerTool).toHaveBeenCalledTimes(1);
-		expect(on).toHaveBeenCalledTimes(2);
-		expect(registerCommand).toHaveBeenCalledTimes(1);
+		// then
+		expect(setStatus).toHaveBeenCalledWith("pi-websearch", undefined);
+		expect(setWidget).toHaveBeenCalledWith("pi-websearch", undefined);
 	});
 });

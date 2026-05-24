@@ -2,6 +2,7 @@ export type SearchProvider =
 	| "exa"
 	| "tavily"
 	| "brave"
+	| "duckduckgo-html"
 	| "serper"
 	| "google-cse"
 	| "z-ai"
@@ -87,6 +88,31 @@ export interface SearchDetails {
 	error?: string;
 }
 
+export interface SearchProgressDetails {
+	phase: "searching";
+	query: string;
+	providerLabels: string[];
+	maxResults: number;
+	strategy?: RoutingStrategy;
+	allowedDomains?: string[];
+	blockedDomains?: string[];
+}
+
+export type ConfigLoadFailureReason =
+	| "missing_config"
+	| "invalid_config"
+	| "missing_api_key"
+	| "provider_native_bypass";
+
+export interface SearchErrorDetails {
+	phase: "error";
+	query: string;
+	error: string;
+	reason?: ConfigLoadFailureReason;
+}
+
+export type SearchRenderDetails = SearchDetails | SearchProgressDetails | SearchErrorDetails;
+
 export interface SearchAttempt {
 	provider: SearchProvider;
 	entryId?: string;
@@ -103,7 +129,12 @@ export interface JsonObject {
 
 export type ConfigLoadResult =
 	| { ok: true; config: WebsearchConfig; source: string }
-	| { ok: false; reason: "missing_config" | "invalid_config" | "missing_api_key"; message: string; source?: string };
+	| {
+			ok: false;
+			reason: ConfigLoadFailureReason;
+			message: string;
+			source?: string;
+	  };
 
 export type ProviderValidationResult =
 	| { ok: true; config: SearchProviderEntry }

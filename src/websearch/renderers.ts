@@ -1,6 +1,6 @@
 import { Text } from "@mariozechner/pi-tui";
 
-import type { SearchDetails } from "./types.js";
+import type { SearchDetails, SearchErrorDetails, SearchProgressDetails, SearchRenderDetails } from "./types.js";
 
 interface ThemeLike {
 	bold(value: string): string;
@@ -42,6 +42,14 @@ function attemptLabel(details: SearchDetails): string {
 		: "";
 }
 
+function isSearchProgressDetails(details: SearchRenderDetails | undefined): details is SearchProgressDetails {
+	return details !== undefined && "phase" in details && details.phase === "searching";
+}
+
+function isSearchErrorDetails(details: SearchRenderDetails): details is SearchErrorDetails {
+	return "phase" in details && details.phase === "error";
+}
+
 export function renderSearchCall(args: SearchArgs, theme: ThemeLike): Text {
 	const head = theme.fg("toolTitle", theme.bold("web_search "));
 	const query = theme.fg("accent", `"${shorten(args.query, 90)}"`);
@@ -51,14 +59,27 @@ export function renderSearchCall(args: SearchArgs, theme: ThemeLike): Text {
 }
 
 export function renderSearchResult(
-	result: ResultLike<SearchDetails>,
+	result: ResultLike<SearchRenderDetails>,
 	options: RenderResultOptions,
 	theme: ThemeLike,
 ): Text {
-	if (options.isPartial) return new Text(theme.fg("warning", "Searching the web..."), 0, 0);
+	if (options.isPartial) {
+		const details = result.details;
+		if (isSearchProgressDetails(details)) {
+			const route = details.providerLabels.length > 0 ? details.providerLabels.join(" -> ") : "configured providers";
+			return new Text(
+				theme.fg("warning", `Searching "${shorten(details.query, 80)}" via ${route} (max ${details.maxResults})`),
+				0,
+				0,
+			);
+		}
+		return new Text(theme.fg("warning", result.content[0]?.text ?? "Searching the web..."), 0, 0);
+	}
 
 	const details = result.details;
 	if (!details) return new Text(theme.fg("muted", result.content[0]?.text ?? ""), 0, 0);
+	if (isSearchProgressDetails(details)) return new Text(theme.fg("muted", result.content[0]?.text ?? ""), 0, 0);
+	if (isSearchErrorDetails(details)) return new Text(theme.fg("error", details.error), 0, 0);
 	if (details.error) return new Text(theme.fg("error", details.error), 0, 0);
 
 	const count = details.results.length;
@@ -71,14 +92,17 @@ export function renderSearchResult(
 		) +
 		(details.truncated ? theme.fg("warning", " (truncated)") : "");
 
-	if (!options.expanded || count === 0) return new Text(summary, 0, 0);
+	if (count === 0) return new Text(summary, 0, 0);
 
 	const attempts = attemptLabel(details);
-	const rows = attempts ? [summary, theme.fg("muted", `route ${attempts}`)] : [summary];
-	for (const item of details.results.slice(0, 8)) {
+	const rows = options.expanded && attempts ? [summary, theme.fg("muted", `route ${attempts}`)] : [summary];
+	const visibleLimit = options.expanded ? 8 : 3;
+	for (const item of details.results.slice(0, visibleLimit)) {
 		rows.push(`${theme.fg("accent", shorten(item.title, 80))} ${theme.fg("dim", shorten(item.url, 100))}`);
 		if (item.snippet) rows.push(theme.fg("muted", `  ${shorten(item.snippet, 140)}`));
 	}
-	if (details.results.length > 8) rows.push(theme.fg("dim", `… ${details.results.length - 8} more sources`));
+	if (details.results.length > visibleLimit) {
+		rows.push(theme.fg("dim", `… ${details.results.length - visibleLimit} more sources`));
+	}
 	return new Text(rows.join("\n"), 0, 0);
 }
