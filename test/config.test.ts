@@ -304,6 +304,25 @@ describe("validateProviderConfig", () => {
 		}
 	});
 
+	it("#given kimi without api key #when validating #then provider is invalid", () => {
+		// given / when
+		const result = validateProviderConfig({ provider: "kimi" });
+
+		// then
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.reason).toBe("missing_api_key");
+		}
+	});
+
+	it("#given kimi with api key #when validating #then provider is valid", () => {
+		// given / when
+		const result = validateProviderConfig({ provider: "kimi", apiKey: "kimi-test" });
+
+		// then
+		expect(result.ok).toBe(true);
+	});
+
 	it("#given codex without api key #when validating #then provider is invalid", () => {
 		// given / when
 		const result = validateProviderConfig({ provider: "codex" });

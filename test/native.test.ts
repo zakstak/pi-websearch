@@ -73,6 +73,11 @@ describe("buildNativeEntry", () => {
 				provider: "z-ai",
 				baseUrl: "https://gateway.example.com/v1/chat/completions",
 			},
+			{
+				model: model("kimi-coding", "k2p7", "https://api.kimi.com/coding"),
+				provider: "kimi",
+				baseUrl: "https://api.kimi.com/coding/v1/search",
+			},
 		];
 
 		for (const testCase of cases) {
