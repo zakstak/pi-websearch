@@ -14,13 +14,7 @@ type ProviderModelContext = {
 };
 
 function isProviderNativeBypass(model: ProviderModelContext | undefined): boolean {
-	return (
-		model?.provider === "openai" ||
-		model?.provider === "anthropic" ||
-		model?.api === "anthropic-messages" ||
-		model?.api === "openai-responses" ||
-		model?.api === "azure-openai-responses"
-	);
+	return model?.provider === "openai" || model?.provider === "anthropic";
 }
 
 export default function (pi: ExtensionAPI): void {

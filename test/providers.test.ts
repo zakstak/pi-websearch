@@ -24,6 +24,7 @@ describe("buildSearchRequest", () => {
 			"anthropic",
 			"perplexity",
 			"xai",
+			"kimi",
 		];
 
 		for (const provider of providers) {
@@ -351,6 +352,25 @@ describe("buildSearchRequest", () => {
 			],
 		});
 	});
+
+	it("#given kimi config #when building request #then posts to kimi coding search with bearer token", () => {
+		// given
+		const config: SearchProviderConfig = { provider: "kimi", apiKey: "kimi-test" };
+
+		// when
+		const request = buildSearchRequest(config, { query: "current docs", maxResults: 5 });
+
+		// then
+		expect(request.url).toBe("https://api.kimi.com/coding/v1/search");
+		expect(request.init.method).toBe("POST");
+		expect(request.init.headers["Authorization"]).toBe("Bearer kimi-test");
+		expect(request.body).toEqual({
+			text_query: "current docs",
+			limit: 5,
+			enable_page_crawling: false,
+			timeout_seconds: 30,
+		});
+	});
 });
 
 describe("normalizeSearchResponse", () => {
@@ -567,5 +587,21 @@ describe("normalizeSearchResponse", () => {
 		expect(results).toEqual([
 			{ title: "Z Result", url: "https://z.example.com", snippet: "Z snippet", source: "Example" },
 		]);
+	});
+
+	it("#given kimi response #when normalizing #then maps search_results", () => {
+		// given
+		const payload = {
+			answer: "Synthesized answer",
+			search_results: [
+				{ title: "Kimi Result", url: "https://kimi.example.com", summary: "Kimi snippet", content: "Full content" },
+			],
+		};
+
+		// when
+		const results = normalizeSearchResponse("kimi", payload);
+
+		// then
+		expect(results).toEqual([{ title: "Kimi Result", url: "https://kimi.example.com", snippet: "Kimi snippet" }]);
 	});
 });
