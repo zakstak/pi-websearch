@@ -231,7 +231,11 @@ export function validateWebsearchConfig(
 		return { ok: false, reason: "invalid_config", message: "Websearch config auto must be a boolean." };
 	}
 	if (config.providers.length === 0 && !config.auto) {
-		return { ok: false, reason: "invalid_config", message: "Websearch config requires at least one provider when auto is false." };
+		return {
+			ok: false,
+			reason: "invalid_config",
+			message: "Websearch config requires at least one provider when auto is false.",
+		};
 	}
 
 	for (const provider of config.providers) {
